@@ -1,4 +1,4 @@
-"""Główne uruchomienie gry."""
+"""Główne uruchomienie gry – nic nie zmieniamy."""
 import pygame
 from core.game import Game
 
@@ -9,20 +9,18 @@ def main() -> None:
 
     WIDTH, HEIGHT = 960, 540
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Isaac Clone – sprint 1 prototype")
+    pygame.display.set_caption("Isaac Clone – sprint 1")
 
     clock = pygame.time.Clock()
     game = Game(screen)
+
     running = True
-
     while running:
-        dt = clock.tick(60) / 1000  # delta‑time w sekundach
-
+        dt = clock.tick(60) / 1000
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             game.handle_event(event)
-
         game.update(dt)
         game.draw()
         pygame.display.flip()
@@ -32,4 +30,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
