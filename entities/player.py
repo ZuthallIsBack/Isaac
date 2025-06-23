@@ -2,14 +2,24 @@
 import pygame
 from core.gameobject import MovingObject
 
-
 class Player(MovingObject):
     SPEED = 200  # piksele na sekundę
     COLOR = (180, 180, 255)
     SIZE = (32, 32)
+    MAX_HP = 3
+    COOLDOWN = 0.25  # s
 
     def __init__(self, pos: tuple[int, int]):
         super().__init__(pos, self.SIZE)
+        self.cooldown = 0.0
+        self.hp = self.MAX_HP
+
+    # ───────── shooting helpers ──────────────────────────
+    def can_shoot(self) -> bool:
+        return self.cooldown <= 0.0
+
+    def reset_cooldown(self) -> None:
+        self.cooldown = self.COOLDOWN
 
     # ──────────────────────────────────────────────────────────── API ────────
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -17,6 +27,7 @@ class Player(MovingObject):
         pass
 
     def update(self, dt: float) -> None:
+        self.cooldown = max(0.0, self.cooldown - dt)
         keys = pygame.key.get_pressed()
         direction = pygame.Vector2(0, 0)
 
