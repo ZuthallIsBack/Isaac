@@ -7,6 +7,7 @@ from ui.menu import Menu
 from entities.projectile import Projectile
 from entities.enemy import Charger
 from ui.hud import HUD
+from ui.minimap import Minimap
 
 
 class Game:
@@ -28,8 +29,10 @@ class Game:
         self.player = Player(start_world)
         # ───────── Sprint 2 lists ─────────
         self.projectiles: list[Projectile] = []
-        self.enemies: list[Charger] = [Charger(self.player.pos + pygame.Vector2(120, 0))]
+        self.level.active_room().enter()  # spawn w startowym pokoju
+        self.enemies = self.level.active_room().enemies
         self.hud = HUD(self.player.MAX_HP)
+        self.minimap = Minimap(self.level)
 
     # ──────────────────────────────────────────────────────────── EVENTY ─────
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -63,6 +66,7 @@ class Game:
     # ─────────────────────────────────────────────────────────── UPDATE ─────
     def update(self, dt: float) -> None:
         if self.state == GameState.PLAYING:
+            self.enemies = self.level.active_room().enemies
             self.player.update(dt)
             # ───────── pociski ─────────
             for proj in list(self.projectiles):
@@ -85,7 +89,7 @@ class Game:
 
                 # kolizja wróg–gracz
                 if enemy.rect.colliderect(self.player.rect):
-                    self.player.hp = max(0, self.player.hp - 1)
+                    self.player.hurt(1)
 
             self.level.update(self.player)  # ← przekazujemy obiekt Player
 
@@ -102,6 +106,7 @@ class Game:
             for enemy in self.enemies:
                 enemy.draw(self.screen, offset)
             self.hud.draw(self.screen, self.player.hp)
+            self.minimap.draw(self.screen)
 
         if self.state in (GameState.MENU_START, GameState.PAUSED):
             self.menu.draw(self.state)
