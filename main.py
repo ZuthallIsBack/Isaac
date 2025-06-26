@@ -9,7 +9,7 @@ def main() -> None:
 
     WIDTH, HEIGHT = 960, 540
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Isaac Clone – sprint 1")
+    pygame.display.set_caption("Isaac Clone")
 
     clock = pygame.time.Clock()
     game = Game(screen)

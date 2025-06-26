@@ -2,6 +2,9 @@
 import pygame
 from pygame import Vector2
 from .room import Room
+from entities.pickup import Heart
+from entities.chest import Chest
+import random
 
 
 class Level:
@@ -9,7 +12,7 @@ class Level:
 
     def __init__(self):
         # ➌ -- przekazujemy GRID_SIZE każdemu Room
-        self.rooms: list[list[Room]] = [
+        self.rooms = [
             [Room((x, y), self.GRID_SIZE) for x in range(self.GRID_SIZE)]
             for y in range(self.GRID_SIZE)
         ]
@@ -48,18 +51,24 @@ class Level:
 
         # ===== sprawdzenie wyjścia przez drzwi =====
         margin = 16
+        if not room.doors_open:
+            walk_through_doors = False
+        else:
+            walk_through_doors = True
         dx = dy = 0
-        if player.rect.top < room.rect.top - margin:
+        if walk_through_doors and player.rect.top < room.rect.top - margin:
             dy = -1
-        elif player.rect.bottom > room.rect.bottom + margin:
+        elif walk_through_doors and player.rect.bottom > room.rect.bottom + margin:
             dy = 1
-        elif player.rect.left < room.rect.left - margin:
+        elif walk_through_doors and player.rect.left < room.rect.left - margin:
             dx = -1
-        elif player.rect.right > room.rect.right + margin:
+        elif walk_through_doors and player.rect.right > room.rect.right + margin:
             dx = 1
 
         if dx or dy:
             self.change_room(dx, dy)
+            new_room = self.active_room()
+            new_room.enter()  # SPawn przeciwników + zamknięcie drzwi
             room = self.active_room()
             # teleport gracza tuż za próg (jak wcześniej)
             if dx == -1:
@@ -86,6 +95,23 @@ class Level:
                 if player.rect.bottom > walk_area.bottom:
                     player.pos.y = walk_area.bottom - player.rect.height
                 player.rect.topleft = player.pos
+
+        alive = [e for e in room.enemies if not getattr(e, "dying", False)]
+        if not room.doors_open and not alive:  # ← UŻYWAMY 'alive'
+            room.doors_open = True
+            room.cleared = True
+
+            # 50 % szansy na serce
+            if random.random() < 0.5:
+                rx = random.randint(room.rect.left + 50, room.rect.right - 50)
+                ry = random.randint(room.rect.top + 50, room.rect.bottom - 50)
+                room.pickups.append(Heart((rx, ry)))
+
+
+            if random.random() < 1:
+                cx = random.randint(room.rect.left + 60, room.rect.right - 60)
+                cy = random.randint(room.rect.top + 60, room.rect.bottom - 60)
+                room.pickups.append(Chest((cx, cy)))
 
     # ───────────────────────────────────────────────────────────── DRAW ─────
     def draw(self, surface: pygame.Surface) -> None:

@@ -1,16 +1,17 @@
 import pygame
-
+from utils.anim import SpriteAnim   # już istnieje? jeśli nie – dodaj import
 
 class HUD:
-    HEART_W = 20
-    HEART_H = 20
-    GAP = 4
-
     def __init__(self, max_hp: int):
         self.max_hp = max_hp
+        self.ICON   = pygame.transform.scale(
+            pygame.image.load("assets/heart_hud.png").convert_alpha(), (24, 24))
 
-    def draw(self, surface: pygame.Surface, hp: int) -> None:
+    def draw(self, surf: pygame.Surface, hp: int) -> None:
         for i in range(self.max_hp):
-            color = (220, 70, 70) if i < hp else (60, 60, 60)
-            x = 16 + i * (self.HEART_W + self.GAP)
-            pygame.draw.rect(surface, color, (x, 10, self.HEART_W, self.HEART_H))
+            x = 16 + i*28
+            y = 16
+            img = self.ICON.copy()
+            if i >= hp:                       # puste serce ⇒ wyszarz
+                img.set_alpha(60)
+            surf.blit(img, (x, y))

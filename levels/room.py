@@ -1,6 +1,7 @@
 """Pojedynczy pokój – teraz ze ścianką kolizji i opisem drzwi."""
 import pygame
-
+import random
+from entities.enemy import Bat, Slime
 
 class Room:
     SIZE = (800, 450)
@@ -17,11 +18,35 @@ class Room:
             self.grid_y * self.SIZE[1],
             *self.SIZE,
         )
+        self.enemies: list = []
+        self.pickups: list = []
+        self.visited = False
+        self.doors_open = True
 
     # ─────────────────────────────────────────────────────────── HELPERS ────
     def inner_rect(self) -> pygame.Rect:
         """Obszar, po którym można chodzić (bez ścian)."""
         return self.rect.inflate(-self.WALL_THICK * 2, -self.WALL_THICK * 2)
+
+    # ───────────────────────── enter room ─────────────────────────
+    def enter(self):
+        """Wywołaj przy wejściu gracza – spawn przeciwników i zamknięcie drzwi."""
+        if not self.visited:
+            from entities.enemy import Bat      # lokalny import (unikamy pętli)
+            self.enemies = []
+            self.pickups = []
+            for _ in range(3):
+                rx = random.randint(self.rect.left + 60, self.rect.right - 60)
+                ry = random.randint(self.rect.top + 60, self.rect.bottom - 60)
+
+                # 50 % szans: Slime • 50 %: Bat
+                if random.random() < 0.3:
+                    self.enemies.append(Slime((rx, ry)))
+                else:
+                    self.enemies.append(Bat((rx, ry)))
+            self.doors_open = False
+            self.visited = True
+
 
     # ➋ -- drzwi tylko jeśli jest pokój obok
     def door_rects(self) -> list[pygame.Rect]:
@@ -63,5 +88,6 @@ class Room:
         room_rect = self.rect.move(offset)
         pygame.draw.rect(surface, self.BG_COLOR, room_rect)
         pygame.draw.rect(surface, (20, 20, 20), room_rect, self.WALL_THICK)
-        for door in self.door_rects():
-            pygame.draw.rect(surface, self.DOOR_COLOR, door.move(offset))
+        door_color = self.DOOR_COLOR if self.doors_open else (140, 0, 0)
+        for dr in self.door_rects():
+            pygame.draw.rect(surface, door_color, dr.move(offset))
