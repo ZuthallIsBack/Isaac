@@ -4,7 +4,7 @@ from entities.weapon import Weapon
 
 class WeaponBar:
     """Trzyslotowy pasek broni z podświetleniem aktywnej."""
-    SLOT   = 36
+    SLOT   = 24
     PAD    = 6
     BG_CLR = (0, 0, 0, 160)
 

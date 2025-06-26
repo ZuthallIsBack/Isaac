@@ -49,6 +49,7 @@ class Game:
 
         # wczytaj pierwszy pokój
         self.level.active_room().enter()
+        self.boss_spawned = False
 
     # ───────────────────── OBSŁUGA ZDARZEŃ ──────────────────────
     def handle_event(self, e: pygame.event.Event) -> None:
@@ -116,10 +117,26 @@ class Game:
             self.player.rect.clamp_ip(room.rect)
             self.player.pos.update(self.player.rect.topleft)
 
+        # ───────── SPAWN BOSS ─────────
+        # jeżeli jesteśmy w pokoju (2,2) i jeszcze nie spawnęliśmy:
+        if self.level.current == (2, 2) and not self.boss_spawned:
+            from entities.beholder import Beholder
+            room_center = self.level.active_room().rect.center
+            # tworzymy boss na środku pokoju:
+            boss = Beholder(room_center)
+            self.enemies.append(boss)
+            self.boss_spawned = True
+
         # 1) pociski
         for p in list(self.projectiles):
             p.update(dt)
             if not room.rect.collidepoint(p.pos):
+                self.projectiles.remove(p)
+
+        # ─── kolizja: pocisk → gracz ───
+        for p in list(self.projectiles):
+            if p.owner is not self.player and p.rect.colliderect(self.player.rect):
+                self.player.hurt(p.dmg)
                 self.projectiles.remove(p)
 
         # 2) wrogowie
@@ -133,6 +150,8 @@ class Game:
 
             # 2a) pocisk → wróg
             for p in list(self.projectiles):
+                if p.owner is e:
+                    continue
                 if e.rect.colliderect(p.rect):
                     self.projectiles.remove(p)
                     eff_cls = ArrowSplash if p.weapon == Weapon.BOW else Splash

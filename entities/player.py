@@ -82,7 +82,8 @@ class Player(MovingObject):
                     dir_vec,
                     weapon=weapon,
                     dmg=stats.dmg,
-                    speed=stats.speed
+                    speed=stats.speed,
+                    owner=self  # <<< dodajemy owner
                 )
             )
         # SWORD = efekt melee
