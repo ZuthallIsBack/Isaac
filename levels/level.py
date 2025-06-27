@@ -108,7 +108,7 @@ class Level:
                 room.pickups.append(Heart((rx, ry)))
 
 
-            if random.random() < 1:
+            if random.random() < 0.3:
                 cx = random.randint(room.rect.left + 60, room.rect.right - 60)
                 cy = random.randint(room.rect.top + 60, room.rect.bottom - 60)
                 room.pickups.append(Chest((cx, cy)))

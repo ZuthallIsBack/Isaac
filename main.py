@@ -1,11 +1,12 @@
 """Główne uruchomienie gry – nic nie zmieniamy."""
 import pygame
 from core.game import Game
-
+from audio import play_music, toggle_music
 
 def main() -> None:
     pygame.init()
     pygame.mixer.init()
+    play_music()
 
     WIDTH, HEIGHT = 960, 540
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -21,6 +22,9 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 running = False
             game.handle_event(event)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+                toggle_music()
+
         game.update(dt)
         game.draw()
         pygame.display.flip()

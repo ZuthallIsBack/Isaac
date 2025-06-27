@@ -16,6 +16,7 @@ from ui.menu            import Menu
 from ui.hud             import HUD
 from ui.minimap         import Minimap
 from ui.weaponbar       import WeaponBar
+from entities.beholder import Beholder
 
 _current_game: "Game | None" = None      # używa go SlimeTrail
 
@@ -67,7 +68,7 @@ class Game:
                 self.state = GameState.PAUSED
             elif self.state == GameState.PAUSED:
                 self.state = GameState.PLAYING
-            elif self.state == GameState.GAME_OVER:
+            elif self.state in (GameState.GAME_OVER, GameState.VICTORY):
                 self.__init__(self.screen)        # pełny reset
 
         if (
@@ -150,7 +151,7 @@ class Game:
 
             # 2a) pocisk → wróg
             for p in list(self.projectiles):
-                if p.owner is e:
+                if p.owner is not self.player:
                     continue
                 if e.rect.colliderect(p.rect):
                     self.projectiles.remove(p)
@@ -235,6 +236,11 @@ class Game:
                 if getattr(enemy, "dying", False):
                     enemy.draw(self.screen, offset)
 
+            # victory
+            if self.boss_spawned and not any(isinstance(e, Beholder) for e in self.enemies):
+                self.state = GameState.VICTORY
+                return
+
             # 3d) efekty trafienia (bez SwordSweep)
             for eff in self.effects:
                 if not getattr(eff, "SLOW", False) and not isinstance(eff, SwordSweep):
@@ -258,5 +264,10 @@ class Game:
             if self.player.dead:
                 self.player.draw(self.screen, offset)
 
-        if self.state in (GameState.MENU_START, GameState.PAUSED, GameState.GAME_OVER):
+        if self.state in (
+                GameState.MENU_START,
+                GameState.PAUSED,
+                GameState.GAME_OVER,
+                GameState.VICTORY,
+        ):
             self.menu.draw(self.state)
