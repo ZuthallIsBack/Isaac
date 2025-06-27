@@ -1,24 +1,53 @@
 """Zarządzanie siatką pokoi, kolizją ze ścianami oraz rysowaniem aktywnego pokoju."""
-import pygame
+from __future__ import annotations
+import random, pygame
 from pygame import Vector2
-from .room import Room
+
+from .room           import Room
 from entities.pickup import Heart
-from entities.chest import Chest
-import random
+from entities.chest  import Chest
 
 
 class Level:
     GRID_SIZE = 3
 
-    def __init__(self):
-        # ➌ -- przekazujemy GRID_SIZE każdemu Room
-        self.rooms = [
+    # ----------------------------------------------------
+    # można odtworzyć poziom z seeda i listy pokoi cleared
+    # ----------------------------------------------------
+    def __init__(
+        self,
+        *,
+        seed: int | None = None,
+        cleared: set[tuple[int, int]] | None = None,
+    ):
+        self.seed = seed if seed is not None else random.randint(0, 2**31 - 1)
+        random.seed(self.seed)
+
+        # tworzymy siatkę pokoi
+        self.rooms: list[list[Room]] = [
             [Room((x, y), self.GRID_SIZE) for x in range(self.GRID_SIZE)]
             for y in range(self.GRID_SIZE)
         ]
-        self.current = (1, 1)
 
-    # ───────────────────────────────────────────────────────── ROOM ACCESS ──
+        self.current: tuple[int, int] = (1, 1)
+
+        # zbiory stanu
+        self._cleared: set[tuple[int, int]] = cleared or set()
+        self.visited:  set[tuple[int, int]] = {self.current}
+
+        # odtwarzamy wyczyszczone pokoje
+        for cx, cy in self._cleared:
+            rm = self.rooms[cy][cx]
+            rm.cleared    = True
+            rm.doors_open = True
+            rm.enemies.clear()
+            rm.pickups.clear()
+
+    # helper do quick-save
+    def cleared_rooms(self) -> list[tuple[int, int]]:
+        return list(self._cleared)
+
+    # ───────────────────────────────────────── ROOM ACCESS ──
     def active_room(self) -> Room:
         return self.rooms[self.current[1]][self.current[0]]
 
@@ -27,34 +56,23 @@ class Level:
         nx, ny = x + dx, y + dy
         if 0 <= nx < self.GRID_SIZE and 0 <= ny < self.GRID_SIZE:
             self.current = (nx, ny)
+            self.visited.add(self.current)
 
-    # ─────────────────────────────────────────────────────── WORLD OFFSET ───
-    # ─────────────────────────────────────────────────────── WORLD OFFSET ───
+    # ───────────────────────────────────────── WORLD OFFSET ──
     def world_offset(self) -> Vector2:
-        """Przesunięcie kamery tak, aby aktywny pokój był WYŚRODKOWANY
-        (nie przyklejony w lewy-górny róg)."""
         room = self.active_room()
-
-        # pobieramy rozmiar bieżącego okna
-        screen_w, screen_h = pygame.display.get_surface().get_size()
-
-        # ile wolnego miejsca zostaje po bokach
-        pad_x = (screen_w - Room.SIZE[0]) // 2
-        pad_y = (screen_h - Room.SIZE[1]) // 2
-
-        # przesuwamy scenę: –room.rect + padding
+        sw, sh = pygame.display.get_surface().get_size()
+        pad_x = (sw - Room.SIZE[0]) // 2
+        pad_y = (sh - Room.SIZE[1]) // 2
         return Vector2(-room.rect.x + pad_x, -room.rect.y + pad_y)
 
-    # ─────────────────────────────────────────────────────────── UPDATE ─────
+    # ─────────────────────────────────────────── UPDATE ─────
     def update(self, player) -> None:
         room = self.active_room()
 
-        # ===== sprawdzenie wyjścia przez drzwi =====
+        # ===== przejście przez drzwi =====
         margin = 16
-        if not room.doors_open:
-            walk_through_doors = False
-        else:
-            walk_through_doors = True
+        walk_through_doors = room.doors_open
         dx = dy = 0
         if walk_through_doors and player.rect.top < room.rect.top - margin:
             dy = -1
@@ -68,20 +86,25 @@ class Level:
         if dx or dy:
             self.change_room(dx, dy)
             new_room = self.active_room()
-            new_room.enter()  # SPawn przeciwników + zamknięcie drzwi
-            room = self.active_room()
-            # teleport gracza tuż za próg (jak wcześniej)
+
+            # spawn przeciwników tylko, gdy pokój NIE był wcześniej cleared
+            if not getattr(new_room, "cleared", False):
+                new_room.enter()
+
+            # teleport gracza
             if dx == -1:
-                player.pos.x = room.rect.right - margin - player.rect.width
+                player.pos.x = new_room.rect.right - margin - player.rect.width
             elif dx == 1:
-                player.pos.x = room.rect.left + margin
+                player.pos.x = new_room.rect.left + margin
             if dy == -1:
-                player.pos.y = room.rect.bottom - margin - player.rect.height
+                player.pos.y = new_room.rect.bottom - margin - player.rect.height
             elif dy == 1:
-                player.pos.y = room.rect.top + margin
+                player.pos.y = new_room.rect.top + margin
             player.rect.topleft = player.pos
 
-        # ===== kolizja z ścianą =====
+            room = new_room
+
+        # ===== kolizja ze ścianą =====
         walk_area = room.inner_rect()
         if not walk_area.contains(player.rect):
             in_door = any(player.rect.colliderect(dr) for dr in room.door_rects())
@@ -96,25 +119,24 @@ class Level:
                     player.pos.y = walk_area.bottom - player.rect.height
                 player.rect.topleft = player.pos
 
+        # ===== otwarcie drzwi po wyczyszczeniu pokoju =====
         alive = [e for e in room.enemies if not getattr(e, "dying", False)]
-        if not room.doors_open and not alive:  # ← UŻYWAMY 'alive'
+        if not room.doors_open and not alive:
             room.doors_open = True
-            room.cleared = True
+            room.cleared    = True
+            self._cleared.add(self.current)
 
-            # 50 % szansy na serce
             if random.random() < 0.5:
                 rx = random.randint(room.rect.left + 50, room.rect.right - 50)
-                ry = random.randint(room.rect.top + 50, room.rect.bottom - 50)
+                ry = random.randint(room.rect.top + 50,  room.rect.bottom - 50)
                 room.pickups.append(Heart((rx, ry)))
-
 
             if random.random() < 0.3:
                 cx = random.randint(room.rect.left + 60, room.rect.right - 60)
-                cy = random.randint(room.rect.top + 60, room.rect.bottom - 60)
+                cy = random.randint(room.rect.top + 60,  room.rect.bottom - 60)
                 room.pickups.append(Chest((cx, cy)))
 
-    # ───────────────────────────────────────────────────────────── DRAW ─────
+    # ───────────────────────────────────────────── DRAW ─────
     def draw(self, surface: pygame.Surface) -> None:
-        # renderujemy tylko aktywny pokój; sąsiednie zostaną ukryte
         offset = self.world_offset()
         self.active_room().draw(surface, offset)

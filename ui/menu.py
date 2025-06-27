@@ -2,7 +2,6 @@
 import pygame
 from core.gamestate import GameState
 
-
 class Menu:
     FONT_SIZE = 48
     SMALL_SIZE = 24
@@ -18,29 +17,53 @@ class Menu:
     def draw(self, state: GameState) -> None:
         w, h = self.screen.get_size()
         if state == GameState.MENU_START:
-            title = self.font_big.render("Isaac‑Clone", True, self.COLOR)
-            prompt = self.font_small.render("[Enter] start", True, self.COLOR)
-            quit_txt = self.font_small.render("[Q] wyjście", True, self.COLOR)
-            self.screen.blit(quit_txt, quit_txt.get_rect(center=(w // 2, h // 1.45)))
-            self.screen.blit(title, title.get_rect(center=(w // 2, h // 3)))
-            self.screen.blit(prompt, prompt.get_rect(center=(w // 2, h // 1.6)))
-        elif state == GameState.PAUSED:
-            pause = self.font_big.render("PAUSED", True, self.COLOR)
-            prompt = self.font_small.render("[Esc] wróć", True, self.COLOR)
-            self.screen.blit(pause, pause.get_rect(center=(w // 2, h // 2.5)))
-            self.screen.blit(prompt, prompt.get_rect(center=(w // 2, h // 1.8)))
-        elif state == GameState.GAME_OVER:
-            over = self.font_big.render("GAME OVER", True, self.COLOR)
-            prompt = self.font_small.render("[Esc] menu", True, self.COLOR)
-            prompt_quit = self.font_small.render("[Q] wyjście", True, self.COLOR)
-            self.screen.blit(prompt_quit, prompt_quit.get_rect(center=(w // 2, h // 1.6)))
-            self.screen.blit(over, over.get_rect(center=(w // 2, h // 2.5)))
-            self.screen.blit(prompt, prompt.get_rect(center=(w // 2, h // 1.8)))
-        elif state == GameState.VICTORY:
-            victory = self.font_big.render("VICTORY", True, self.COLOR)
-            prompt = self.font_small.render("[Esc] menu", True, self.COLOR)
-            prompt_quit = self.font_small.render("[Q] wyjście", True, self.COLOR)
+            w, h = self.screen.get_size()
 
-            self.screen.blit(victory, victory.get_rect(center=(w // 2, h // 2.5)))
-            self.screen.blit(prompt, prompt.get_rect(center=(w // 2, h // 1.8)))
-            self.screen.blit(prompt_quit, prompt_quit.get_rect(center=(w // 2, h // 1.6)))
+            title = self.font_big.render("ISAAC - selfmade version", True, self.COLOR)
+            self.screen.blit(title, title.get_rect(center=(w // 2, h // 3)))
+
+            # lewa krawędź listy (-100 px od środka)
+            anchor_x = w // 2 - 100
+            y = h // 2
+            for line in (
+                    "[Enter]  start",
+                    "[F5]     zapis gry",
+                    "[F9]     wczytaj zapis",
+                    "[P]      pauza w trakcie gry",
+                    "[M]      muzyka on / off",
+                    "[Q]      wyjście z gry",
+            ):
+                txt = self.font_small.render(line, True, self.COLOR)
+                self.screen.blit(txt, (anchor_x, y))  # ← wyrównanie do lewej
+                y += 32
+
+        elif state == GameState.PAUSED:
+            w, h = self.screen.get_size()
+            pause = self.font_big.render("PAUZA", True, self.COLOR)
+            unp = self.font_small.render("[P] wznów", True, self.COLOR)
+            quit_ = self.font_small.render("[Q] wyjście", True, self.COLOR)
+
+            self.screen.blit(pause, pause.get_rect(center=(w // 2, h // 3)))
+            self.screen.blit(unp, unp.get_rect(center=(w // 2, h // 1.8)))
+            self.screen.blit(quit_, quit_.get_rect(center=(w // 2, h // 1.6)))
+
+        elif state == GameState.GAME_OVER:
+            w, h = self.screen.get_size()
+            over = self.font_big.render("GAME OVER", True, self.COLOR)
+            esc = self.font_small.render("[Esc]  menu", True, self.COLOR)
+            quit_ = self.font_small.render("[Q]    wyjście", True, self.COLOR)
+
+            self.screen.blit(over, over.get_rect(center=(w // 2, h // 3)))
+            self.screen.blit(esc, esc.get_rect(center=(w // 2, h // 1.8)))
+            self.screen.blit(quit_, quit_.get_rect(center=(w // 2, h // 1.6)))
+
+        elif state == GameState.VICTORY:
+            w, h = self.screen.get_size()
+            win = self.font_big.render("VICTORY!", True, self.COLOR)
+            esc = self.font_small.render("[Esc]  menu", True, self.COLOR)
+            quit_ = self.font_small.render("[Q]    wyjście", True, self.COLOR)
+
+            self.screen.blit(win, win.get_rect(center=(w // 2, h // 3)))
+            self.screen.blit(esc, esc.get_rect(center=(w // 2, h // 1.8)))
+            self.screen.blit(quit_, quit_.get_rect(center=(w // 2, h // 1.6)))
+

@@ -1,7 +1,7 @@
-"""Logika wysokiego poziomu – ekrany, poziom, gracz."""
+"""Logika wysokiego poziomu – ekrany, poziom, gracz (plus quick-save)."""
 from __future__ import annotations
+import json, pathlib, random, pygame
 
-import pygame, random
 from core.gamestate     import GameState
 from core.gameobject    import GameObject
 from entities.player    import Player
@@ -16,9 +16,10 @@ from ui.menu            import Menu
 from ui.hud             import HUD
 from ui.minimap         import Minimap
 from ui.weaponbar       import WeaponBar
-from entities.beholder import Beholder
+from entities.beholder  import Beholder
 
 _current_game: "Game | None" = None      # używa go SlimeTrail
+SAVE_PATH = pathlib.Path("savegame.json")
 
 
 class Game:
@@ -52,37 +53,121 @@ class Game:
         self.level.active_room().enter()
         self.boss_spawned = False
 
+    # ─────────────────────────── QUICK-SAVE ──────────────────────────
+    def save_game(self) -> None:
+        data = {
+            "level": {
+                "seed":    self.level.seed,
+                "cleared": self.level.cleared_rooms(),
+                "current": self.level.current,
+            },
+            "player": {
+                "pos":         list(self.player.pos),
+                "hp":          self.player.hp,
+                "weapons":     [w.name for w in self.player.weapons],
+                "active_slot": self.player.active_slot,
+            },
+            "boss_spawned": self.boss_spawned,
+            "boss_dead":    self.boss_spawned and not any(
+                                isinstance(e, Beholder) for e in self.enemies),
+        }
+        SAVE_PATH.write_text(json.dumps(data, indent=2))
+        print("✓ gra zapisana")
+
+    def load_game(self) -> None:
+        if not SAVE_PATH.exists():
+            print("brak savegame.json")
+            return
+
+        data = json.loads(SAVE_PATH.read_text())
+
+        # --- odtwarzamy poziom ---
+        self.level = Level(seed=data["level"]["seed"],
+                           cleared=set(tuple(r) for r in data["level"]["cleared"]))
+        self.level.current  = tuple(data["level"]["current"])
+        self.enemies        = self.level.active_room().enemies
+        self.boss_spawned   = data["boss_spawned"]
+
+        # --- gracz ---
+        self.player = Player(tuple(data["player"]["pos"]))
+        self.player.hp          = data["player"]["hp"]
+        self.player.weapons     = [Weapon[w] for w in data["player"]["weapons"]]
+        self.player.active_slot = data["player"]["active_slot"]
+
+        # UI od zera
+        self.hud       = HUD(self.player.MAX_HP)
+        self.minimap   = Minimap(self.level)
+        self.weaponbar = WeaponBar(self.player)
+
+        # boss martwy? → usuń obiekt z pokoju
+        if data["boss_dead"]:
+            self.enemies[:] = [e for e in self.enemies if not isinstance(e, Beholder)]
+
+        # runtime listy na czysto
+        self.projectiles.clear()
+        self.effects.clear()
+
+        self.state = GameState.PLAYING
+        print("✓ gra wczytana")
+
     # ───────────────────── OBSŁUGA ZDARZEŃ ──────────────────────
     def handle_event(self, e: pygame.event.Event) -> None:
+        """Reaguje na zdarzenia Pygame; klawiatura = sterowanie / save / load."""
 
-        # --- globalne wyjścia ---
+        # 0) GLOBALNE WYJŚCIE – Q gdy NIE gramy
         if e.type == pygame.QUIT or (
-            e.type == pygame.KEYDOWN and e.key == pygame.K_q
-            and self.state in (GameState.MENU_START, GameState.GAME_OVER)
+            e.type == pygame.KEYDOWN
+            and e.key == pygame.K_q
+            and self.state != GameState.PLAYING
         ):
-            pygame.quit(); quit()
+            pygame.quit()
+            quit()
 
-        # --- przełączanie stanów ---
-        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-            if self.state == GameState.PLAYING:
-                self.state = GameState.PAUSED
-            elif self.state == GameState.PAUSED:
-                self.state = GameState.PLAYING
-            elif self.state in (GameState.GAME_OVER, GameState.VICTORY):
-                self.__init__(self.screen)        # pełny reset
+        # ❶ Quick-save  — F5 (zawsze działa)
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_F5:
+            self.save_game()
+            return
 
+        # ❷ Quick-load — F9 (działa, gdy NIE gramy)
+        if (
+            e.type == pygame.KEYDOWN
+            and e.key == pygame.K_F9
+            and self.state != GameState.PLAYING
+        ):
+            self.load_game()
+            return
+
+        # 1) Start gry z menu
         if (
             e.type == pygame.KEYDOWN
             and e.key == pygame.K_RETURN
             and self.state == GameState.MENU_START
         ):
             self.state = GameState.PLAYING
+            return
 
-        # ============ sterowanie, gdy gra trwa ============
+        # 2) Pauza ↔ wznowienie  (P)
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_p:
+            if self.state == GameState.PLAYING:
+                self.state = GameState.PAUSED
+            elif self.state == GameState.PAUSED:
+                self.state = GameState.PLAYING
+            return
+
+        # 3) Esc = powrót do menu z pauzy / victory / game-over
+        if (
+            e.type == pygame.KEYDOWN
+            and e.key == pygame.K_ESCAPE
+            and self.state in (GameState.PAUSED, GameState.GAME_OVER, GameState.VICTORY)
+        ):
+            self.__init__(self.screen)
+            return
+
+        # 4) reszta sterowania tylko w trakcie gry
         if self.state != GameState.PLAYING:
             return
 
-        # --- atak (strzałki) ---
+        # 4a) atak
         if e.type == pygame.KEYDOWN and self.player.can_shoot():
             dir_vec = pygame.Vector2(
                 (e.key == pygame.K_RIGHT) - (e.key == pygame.K_LEFT),
@@ -92,11 +177,11 @@ class Game:
                 self.player.attack(dir_vec, self.effects, self.projectiles)
                 self.player.reset_cooldown()
 
-        # --- wybór broni 1-3 ---
+        # 4b) wybór broni
         if e.type == pygame.KEYDOWN and e.key in (pygame.K_1, pygame.K_2, pygame.K_3):
             self.player.select_weapon(e.key - pygame.K_1)
 
-        # --- kółko myszy (rotacja slotów) ---
+        # 4c) kółko myszy – rotacja slotów
         if e.type == pygame.MOUSEWHEEL and len(self.player.weapons) > 1:
             nxt = (self.player.active_slot + 1) % len(self.player.weapons)
             self.player.select_weapon(nxt)

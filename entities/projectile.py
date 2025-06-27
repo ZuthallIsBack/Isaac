@@ -33,7 +33,7 @@ class Projectile(MovingObject):
         # Jeśli strzela Beholder → fioletowy duplikat łzy
         if owner and owner.__class__.__name__ == "Beholder":
             base_img = Projectile.IMG_TEAR.copy()
-            base_img.fill((200, 40, 40, 255), special_flags=pygame.BLEND_RGBA_MULT)
+            base_img.fill((255, 60, 60, 255), special_flags=pygame.BLEND_RGBA_MULT)
 
         # Obrót
         self.direction = pygame.Vector2(direction).normalize()
